@@ -36,6 +36,8 @@ async function carregar() {
     (pvA && pvA.n_jogos ? ' + ' + pvA.n_jogos + ' jogos provisórios (Polymarket, ' + pvA.gerado_em.slice(0, 16).replace('T', ' ') + ' UTC)' : ''));
   montarRanking('atp');
   montarJogos();
+  montarPlano();
+  montarConta();
 }
 
 function norm(s) {
@@ -320,3 +322,116 @@ function montarJogos() {
 }
 
 carregar();
+
+// ================= PLANO DO DIA (interativo) =================
+let pickState = {};
+function picksDoDia(dia) {
+  const idx = jogosDB(); const out = [];
+  for (const mk of (dados.poly ? dados.poly.mercados : [])) {
+    const m = (mk.slug || '').match(/^(atp|wta)-.*-(\d{4}-\d{2}-\d{2})$/);
+    if (!m || m[2] !== dia) continue;
+    const ca = idx[m[1]][norm((mk.lados[0]||'').split(' ').pop())] || [];
+    const cb = idx[m[1]][norm((mk.lados[1]||'').split(' ').pop())] || [];
+    if (ca.length !== 1 || cb.length !== 1) continue;
+    const p = 1/(1+Math.pow(10,(cb[0].e-ca[0].e)/480));
+    [[p, ca[0], 0],[1-p, cb[0], 1]].forEach(([pl, jog, i]) => {
+      const px = mk.precos[i];
+      if (!(px > 0.02)) return;
+      const ev = pl/px - 1;
+      if (ev >= 0.05 && ev <= 0.25 && px >= 0.30 && Math.abs(pl-px) < 0.08)
+        out.push({ id: mk.slug+'-'+i, nome: jog.n, opp: i? ca[0].n : cb[0].n, p: pl, odd: 1/px, ev });
+    });
+  }
+  return out.sort((x,y) => y.ev - x.ev);
+}
+function montarPlano() {
+  if (!dados.poly) return;
+  const hoje = new Date().toISOString().slice(0,10);
+  const dias = [...new Set(dados.poly.mercados.map(m => ((m.slug||'').match(/(\d{4}-\d{2}-\d{2})$/)||[])[1]).filter(d => d && d >= hoje))].sort().slice(0,3);
+  $('#pDia').innerHTML = dias.map((d,i)=>`<button class="chip${i===0?' ativa':''}" data-v="${d}">${d===hoje?'Hoje':d.slice(8)+'/'+d.slice(5,7)}</button>`).join('');
+  ['#pRisco','#pMax','#pDia'].forEach(s => $(s).addEventListener('click', e => { if (e.target.closest('.chip')) renderPlano(); }));
+  $('#pBanca').addEventListener('input', renderPlano);
+  renderPlano();
+}
+function renderPlano() {
+  const dia = chipValor('#pDia'); if (!dia) return;
+  const banca = parseFloat($('#pBanca').value)||1000;
+  const risco = parseFloat(chipValor('#pRisco'));
+  const maxN = parseInt(chipValor('#pMax'));
+  const todos = picksDoDia(dia);
+  todos.forEach(pk => { if (!(pk.id in pickState)) pickState[pk.id] = { incluida: true, sim: 'pendente' }; });
+  const ativos = todos.filter(pk => pickState[pk.id].incluida).slice(0, maxN);
+  const stake = Math.max(Math.round(banca*risco), 0);
+  $('#pLista').innerHTML = todos.length ? todos.map(pk => {
+    const st = pickState[pk.id]; const dentro = ativos.includes(pk);
+    return `<div class="sj-linha${dentro?' sj-vale':''}" style="${st.incluida?'':'opacity:.45'}">
+      <div class="sj-hora"><label style="cursor:pointer"><input type="checkbox" ${st.incluida?'checked':''} onchange="togglePick('${pk.id}')"> incluir</label></div>
+      <div class="sj-meio"><div class="sj-jog"><span class="sj-nome">${pk.nome}</span><span class="jog-meta">vs ${pk.opp}</span></div>
+        <div class="jog-meta">p ${(pk.p*100).toFixed(0)}% · odd ${pk.odd.toFixed(2)} · EV +${(pk.ev*100).toFixed(0)}%${dentro?' · stake R$ '+stake:''}</div></div>
+      <div class="sj-odds">${dentro?`<div class="chips">
+        <button class="chip${st.sim==='green'?' ativa':''}" onclick="simPick('${pk.id}','green')">green</button>
+        <button class="chip${st.sim==='red'?' ativa':''}" onclick="simPick('${pk.id}','red')">red</button>
+        <button class="chip${st.sim==='pendente'?' ativa':''}" onclick="simPick('${pk.id}','pendente')">?</button></div>`:''}</div>
+      <div class="sj-selo"></div></div>`;
+  }).join('') : '<div class="res-cartao">Nenhuma aposta passa nos filtros neste dia — não apostar também é EV.</div>';
+  // resumo: EV, cenarios e what-if com o estado simulado
+  if (!ativos.length) { $('#pResumo').innerHTML=''; return; }
+  let evDia=0, melhor=0, simRes=0, pend=0;
+  ativos.forEach(pk => { evDia += stake*(pk.p*pk.odd-1); melhor += stake*(pk.odd-1);
+    const s=pickState[pk.id].sim; if(s==='green') simRes+=stake*(pk.odd-1); else if(s==='red') simRes-=stake; else pend++; });
+  let cen=[]; for(let m2=0;m2<(1<<ativos.length);m2++){let pr=1,ret=0;ativos.forEach((pk,i)=>{const w=m2&(1<<i);pr*=w?pk.p:1-pk.p;ret+=w?stake*(pk.odd-1):-stake;});cen.push({pr,ret});}
+  const pPos = cen.filter(c=>c.ret>0).reduce((s,c)=>s+c.pr,0);
+  $('#pResumo').innerHTML = `<div class="res-cartao"><div class="res-nomes"><span>📋 ${ativos.length} aposta(s) · R$ ${stake} cada · exposição R$ ${stake*ativos.length} (${(stake*ativos.length/banca*100).toFixed(1)}% da banca)</span></div>
+    <div class="grade-stats">
+      <div class="stat"><div class="stat-n">${evDia>=0?'+':''}R$ ${evDia.toFixed(0)}</div><div class="stat-l">EV do dia</div></div>
+      <div class="stat"><div class="stat-n">${(pPos*100).toFixed(0)}%</div><div class="stat-l">chance de fechar positivo</div></div>
+      <div class="stat"><div class="stat-n">−R$ ${stake*ativos.length} / +R$ ${melhor.toFixed(0)}</div><div class="stat-l">pior / melhor caso</div></div>
+      <div class="stat"><div class="stat-n">${simRes>=0?'+':''}R$ ${simRes.toFixed(0)}${pend?' <span class="jog-meta">('+pend+' pendente)</span>':''}</div><div class="stat-l">resultado da SUA simulação</div></div>
+    </div>
+    <button class="botao-principal" onclick="salvarDia('${dia}')">💾 Salvar este dia no meu perfil</button>
+    <p class="aviso-leve">Fase atual: paper. Backtest contra fechamento = R$1000→R$204 (veja Conta) — só abertura/exchange.</p></div>`;
+  window._planoAtual = { dia, stake, ativos: ativos.map(pk => ({...pk, sim: pickState[pk.id].sim})) , simRes, pend };
+}
+window.togglePick = id => { pickState[id].incluida = !pickState[id].incluida; renderPlano(); };
+window.simPick = (id, v) => { pickState[id].sim = v; renderPlano(); };
+
+// ================= CONTA (perfil local + log) =================
+const LS = 'jg_perfis';
+function perfis() { try { return JSON.parse(localStorage.getItem(LS))||{}; } catch(e){ return {}; } }
+function perfilAtivo() { return localStorage.getItem('jg_ativo') || ''; }
+function montarConta() {
+  $('#cEntrar').onclick = () => { const n = $('#cNome').value.trim(); if(!n) return;
+    const p = perfis(); p[n] = p[n] || { criado: new Date().toISOString(), dias: [] };
+    localStorage.setItem(LS, JSON.stringify(p)); localStorage.setItem('jg_ativo', n); renderConta(); };
+  $('#cExport').onclick = () => { const p = perfis()[perfilAtivo()]; if(!p) return;
+    let csv = 'data;apostas;resultado_simulado;pendentes\n' + p.dias.map(d=>`${d.dia};${d.apostas.map(a=>a.nome+'@'+a.odd.toFixed(2)+':'+a.sim).join('|')};${d.simRes};${d.pend}`).join('\n');
+    const b = new Blob([csv],{type:'text/csv'}); const u = URL.createObjectURL(b);
+    Object.assign(document.createElement('a'),{href:u,download:'jonygreens_log.csv'}).click(); };
+  renderConta(); renderBacktest();
+}
+window.salvarDia = dia => { const n = perfilAtivo(); if(!n) { alert('Crie um perfil na aba Conta primeiro.'); return; }
+  const p = perfis(); const reg = window._planoAtual; if(!reg) return;
+  p[n].dias = p[n].dias.filter(d => d.dia !== dia); p[n].dias.push(reg); p[n].dias.sort((a,b)=>a.dia<b.dia?-1:1);
+  localStorage.setItem(LS, JSON.stringify(p)); renderConta(); alert('Dia salvo no perfil ' + n); };
+function renderConta() {
+  const n = perfilAtivo(); const p = perfis()[n];
+  $('#cStatus').textContent = n ? `Perfil ativo: ${n} · ${p.dias.length} dia(s) registrados.` : 'Nenhum perfil ativo.';
+  if (n) $('#cNome').value = n;
+  $('#cHistorico').innerHTML = (p && p.dias.length) ? `<div class="cartao tabela-scroll"><table>
+    <thead><tr><th>Dia</th><th>Apostas</th><th>Resultado simulado</th></tr></thead><tbody>` +
+    p.dias.map(d=>`<tr><td>${d.dia}</td><td>${d.ativos? d.ativos.map(a=>`${a.nome} @${a.odd.toFixed(2)} <span class="jog-meta">${a.sim}</span>`).join('<br>') : ''}</td>
+    <td class="num ${d.simRes>=0?'ev-pos':'ev-neg'}">${d.simRes>=0?'+':''}R$ ${(d.simRes||0).toFixed(0)}${d.pend?' ('+d.pend+' pend.)':''}</td></tr>`).join('') + '</tbody></table></div>' : '';
+}
+async function renderBacktest() {
+  let bt; try { bt = await fetch('data/backtest_diario.json').then(r=>r.json()); } catch(e) { return; }
+  const s = bt.serie, fim = s[s.length-1];
+  const pts = s.filter((_,i)=>i%3===0).map((x,i,arr)=>`${(i/(arr.length-1)*560).toFixed(0)},${(120-(x.banca/1100)*110).toFixed(0)}`).join(' ');
+  const diasPos = s.filter(x=>x.pnl>0).length;
+  $('#cBacktest').innerHTML = `<div class="bloco alerta">
+    <div class="grade-stats">
+      <div class="stat"><div class="stat-n">R$ ${fim.banca.toFixed(0)}</div><div class="stat-l">banca final saindo de R$ 1.000 (${bt.resumo.apostas} apostas, ${s.length} dias)</div></div>
+      <div class="stat"><div class="stat-n">${diasPos}/${s.length}</div><div class="stat-l">dias positivos</div></div>
+    </div>
+    <svg viewBox="0 0 560 130" class="grafico" role="img" aria-label="curva da banca no backtest"><polyline fill="none" stroke="var(--perigo)" stroke-width="2" points="${pts}"/><line x1="0" y1="${120-(1000/1100)*110}" x2="560" y2="${120-(1000/1100)*110}" stroke="var(--borda)" stroke-dasharray="4"/></svg>
+    <p class="aviso-leve"><strong>A lição que protege sua banca:</strong> contra odds de FECHAMENTO, este plano PERDE (como todo modelo público). É exatamente por isso que o sistema só considera abertura/exchange e está em fase de paper trading com CLV. Desempenho por dia de torneio: ${Object.entries(bt.dia_torneio).slice(0,7).map(([k,v])=>`D${k}: ${v.pnl_unidades>0?'+':''}${v.pnl_unidades}u`).join(' · ')}.</p></div>`;
+}

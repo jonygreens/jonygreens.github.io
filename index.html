@@ -19,6 +19,8 @@
     <nav class="abas" role="tablist">
       <button class="aba ativa" data-aba="previsao">Previsão</button>
       <button class="aba" data-aba="jogos">Jogos</button>
+      <button class="aba" data-aba="plano">Plano</button>
+      <button class="aba" data-aba="conta">Conta</button>
       <button class="aba" data-aba="rankings">Rankings</button>
       <button class="aba" data-aba="metodologia">Metodologia</button>
       <button class="aba" data-aba="comparacao">Comparação</button>
@@ -101,6 +103,45 @@
   <div class="chips" id="chipsDia"></div>
   <div id="planoDia"></div>
   <div id="listaJogos"></div>
+</section>
+
+<!-- ============ PLANO ============ -->
+<section id="plano" class="painel">
+  <h2>Plano de apostas do dia</h2>
+  <p class="sub">Monte o plano: defina banca e risco, remova o que discordar, simule cada resultado. Regras pré-registradas (EV 5-25%, prob ≥30%, veto anti-sinal). <span class="dataPoly"></span></p>
+  <div class="cartao" style="margin-bottom:14px">
+    <div class="grade-odds">
+      <div class="campo"><label>Banca do dia (R$)</label><input id="pBanca" type="number" value="1000" step="50"></div>
+      <div class="campo"><label>Risco por aposta</label>
+        <div class="chips" id="pRisco">
+          <button class="chip" data-v="0.005">Conservador 0,5%</button>
+          <button class="chip ativa" data-v="0.01">Padrão 1%</button>
+          <button class="chip" data-v="0.02">Agressivo 2%</button>
+        </div></div>
+      <div class="campo"><label>Máx. apostas</label>
+        <div class="chips" id="pMax"><button class="chip" data-v="2">2</button><button class="chip ativa" data-v="3">3</button><button class="chip" data-v="5">5</button></div></div>
+      <div class="campo"><label>Dia</label><div class="chips" id="pDia"></div></div>
+    </div>
+  </div>
+  <div id="pLista"></div>
+  <div id="pResumo"></div>
+</section>
+
+<!-- ============ CONTA ============ -->
+<section id="conta" class="painel">
+  <h2>Sua conta</h2>
+  <p class="sub">Perfil local neste dispositivo (site estático sem servidor — seus dados não saem daqui; exporte em CSV). Salve o resultado de cada dia e acompanhe seu desempenho.</p>
+  <div class="cartao" style="margin-bottom:14px">
+    <div class="grade-odds">
+      <div class="campo"><label>Perfil</label><input id="cNome" placeholder="seu nome" autocomplete="off"></div>
+      <div class="campo" style="align-self:end"><button class="botao-principal" style="margin-top:0" id="cEntrar">Entrar / criar</button></div>
+      <div class="campo" style="align-self:end"><button class="botao-principal" style="margin-top:0;background:var(--painel);color:var(--texto);border:1px solid var(--borda)" id="cExport">Exportar CSV</button></div>
+    </div>
+    <p class="aviso-leve" id="cStatus">Nenhum perfil ativo.</p>
+  </div>
+  <div id="cHistorico"></div>
+  <h3 style="margin:22px 0 8px">📉 Se você já estivesse apostando este plano (backtest 2023-2026, odds de FECHAMENTO)</h3>
+  <div id="cBacktest"></div>
 </section>
 
 <!-- ============ RANKINGS ============ -->
