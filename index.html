@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jony Greens — previsão de tênis com Elo calibrado</title>
+<meta name="description" content="Modelo de Elo para ATP e WTA com probabilidades calibradas, validação honesta e comparação com odds de casas de aposta.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23d8f23a'/><path d='M14 25 Q50 50 14 75 M86 25 Q50 50 86 75' stroke='white' stroke-width='6' fill='none'/></svg>">
+</head>
+<body>
+
+<header class="topo">
+  <div class="wrap topo-linha">
+    <div class="logo">🎾 <strong>Jony Greens</strong></div>
+    <nav class="abas" role="tablist">
+      <button class="aba ativa" data-aba="previsao">Previsão</button>
+      <button class="aba" data-aba="rankings">Rankings</button>
+      <button class="aba" data-aba="metodologia">Metodologia</button>
+      <button class="aba" data-aba="comparacao">Comparação</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ============ PREVISÃO ============ -->
+<section id="previsao" class="painel ativa">
+  <div class="hero">
+    <h1>Quem ganha esse jogo?</h1>
+    <p class="sub">Probabilidade calibrada via Elo geral + superfície, treinado em <strong>781 mil partidas</strong> (1968–2026, ATP + WTA + challengers). Compare com a odd da casa e veja se há valor — com o alerta de anti-sinal que protege sua banca.</p>
+  </div>
+
+  <div class="cartao form-previsao">
+    <div class="grade-jogadores">
+      <div class="campo">
+        <label for="jogadorA">Jogador(a) A</label>
+        <input id="jogadorA" list="listaJogadores" placeholder="ex: Sinner" autocomplete="off">
+      </div>
+      <div class="vs">vs</div>
+      <div class="campo">
+        <label for="jogadorB">Jogador(a) B</label>
+        <input id="jogadorB" list="listaJogadores" placeholder="ex: Alcaraz" autocomplete="off">
+      </div>
+    </div>
+    <datalist id="listaJogadores"></datalist>
+
+    <div class="grade-opcoes">
+      <div class="campo">
+        <label>Piso</label>
+        <div class="chips" id="chipsPiso">
+          <button class="chip ativa" data-v="H">Duro</button>
+          <button class="chip" data-v="C">Saibro</button>
+          <button class="chip" data-v="G">Grama</button>
+        </div>
+      </div>
+      <div class="campo">
+        <label>Formato</label>
+        <div class="chips" id="chipsBo">
+          <button class="chip ativa" data-v="3">Melhor de 3</button>
+          <button class="chip" data-v="5">Melhor de 5</button>
+        </div>
+      </div>
+      <div class="campo">
+        <label title="Bogotá, Guadalajara, Gstaad, Kitzbühel...">Altitude (1.000m+)</label>
+        <div class="chips" id="chipsAlt">
+          <button class="chip ativa" data-v="0">Não</button>
+          <button class="chip" data-v="1">Sim</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grade-odds">
+      <div class="campo">
+        <label for="casaNome">Odds da casa <span class="opcional">(opcional)</span></label>
+        <select id="casaNome">
+          <option>Bet365</option><option>Betano</option><option>Polymarket</option><option>Pinnacle</option><option>Outra</option>
+        </select>
+      </div>
+      <div class="campo"><label for="oddA">Odd A</label><input id="oddA" type="number" step="0.01" min="1.01" placeholder="1.85"></div>
+      <div class="campo"><label for="oddB">Odd B</label><input id="oddB" type="number" step="0.01" min="1.01" placeholder="2.05"></div>
+      <div class="campo"><label for="banca">Banca (R$)</label><input id="banca" type="number" step="50" min="0" value="1000"></div>
+    </div>
+
+    <button id="btnPrever" class="botao-principal">Calcular probabilidade</button>
+  </div>
+
+  <div id="resultado" class="oculto"></div>
+
+  <p class="nota-rodape">Ratings até <span class="dataCorte">…</span> (fonte atualiza semanalmente). Probabilidades calibradas no holdout 2023-2026: erro máximo de 2,4 p.p. na zona 50–80%. Este site não é recomendação de aposta — leia a metodologia.</p>
+</section>
+
+<!-- ============ RANKINGS ============ -->
+<section id="rankings" class="painel">
+  <h2>Ranking Elo atual</h2>
+  <p class="sub">Elo geral + por piso, só jogadores ativos (≥30 partidas na carreira). O Elo mede força real demonstrada — não pontos defendidos no calendário como o ranking oficial.</p>
+  <div class="chips" id="chipsTour">
+    <button class="chip ativa" data-v="atp">ATP</button>
+    <button class="chip" data-v="wta">WTA</button>
+  </div>
+  <div class="chips" id="chipsModelo" style="margin-top:8px">
+    <button class="chip ativa" data-v="nosso">Jony Greens</button>
+    <button class="chip" data-v="ta">Tennis Abstract</button>
+    <button class="chip" data-v="uts">UTS (reimpl.)</button>
+    <button class="chip" data-v="f538">538 (reimpl.)</button>
+    <button class="chip" data-v="classico">Clássico K=32</button>
+  </div>
+  <p class="aviso-leve" id="notaModelo"></p>
+  <div class="cartao tabela-scroll"><table id="tabelaRanking"></table></div>
+</section>
+
+<!-- ============ METODOLOGIA ============ -->
+<section id="metodologia" class="painel">
+  <h2>Como o modelo funciona</h2>
+  <p class="sub">Cada parâmetro foi decidido por um painel multi-agente (pesquisa verificada em fontes primárias + 5 perspectivas + juiz) e confirmado por tuning empírico com protocolo pré-registrado: promoção só com ganho ≥0,002 de log-loss em ATP <em>e</em> WTA, em anos de tune (2010-2022) — o holdout 2023-2026 foi lido uma única vez.</p>
+
+  <div class="bloco">
+    <h3>1 · O coração: Elo com K dinâmico</h3>
+    <p>Após cada partida, o rating do vencedor sobe e o do perdedor desce, proporcionalmente à surpresa do resultado:</p>
+    <pre class="formula">R' = R + K · (resultado − esperado)
+esperado = 1 / (1 + 10^((R_oponente − R) / 400))
+K = 250 / (nº de partidas na carreira + 5)^0.4</pre>
+    <p>O K dinâmico (FiveThirtyEight/Kovalchik, <em>peer-reviewed</em> — único K validado academicamente em tênis) faz novatos se moverem rápido (K≈131 na estreia) e veteranos serem estáveis (K≈21 com 500 jogos):</p>
+    <svg viewBox="0 0 560 150" class="grafico" role="img" aria-label="Curva do K-factor caindo de 131 na estreia para 21 com 500 partidas">
+      <polyline fill="none" stroke="var(--acento)" stroke-width="3" points="40,18 70,52 100,68 140,82 180,91 240,101 300,108 380,115 460,120 540,124"/>
+      <line x1="40" y1="130" x2="540" y2="130" stroke="var(--borda)"/>
+      <text x="40" y="145" class="t-svg">0 jogos (K=131)</text>
+      <text x="250" y="145" class="t-svg">100 (K=39)</text>
+      <text x="460" y="145" class="t-svg">500 (K=21)</text>
+    </svg>
+  </div>
+
+  <div class="bloco">
+    <h3>2 · Superfície: blend 50/50</h3>
+    <p>Cada jogador tem um Elo geral e um por piso. A previsão usa a média dos dois — o único peso publicado com backtest em escala (Tennis Abstract, ~50 mil partidas: o blend bate tanto o Elo geral puro quanto o de superfície puro em todos os pisos). Nossa grade confirmou: 0,5 a 0,65 é platô; piso puro é muito pior.</p>
+    <pre class="formula">R_confronto = 0.5 · R_geral + 0.5 · R_piso</pre>
+  </div>
+
+  <div class="bloco">
+    <h3>3 · Calibração: escala 480 (a maior melhoria do projeto)</h3>
+    <p>O Elo cru (escala 400) é <strong>superconfiante</strong> em tênis: favoritos previstos com 82% venciam só 78% no nosso diagnóstico — eco do fator de esticamento que Jeff Sonas mediu no xadrez. Corrigimos com um único parâmetro, tunado fora do holdout:</p>
+    <pre class="formula">p = 1 / (1 + 10^(−ΔR / 480))   ← previsão (update continua em /400)</pre>
+    <p>Resultado no holdout: calibração dentro de ±2,4 p.p. em toda a zona apostável (50–80%). Em eventos de <strong>altitude</strong> (Bogotá 2.640m, Guadalajara, Gstaad, Kitzbühel) o ar rarefeito encurta ralis e derruba a transferência dos ratings: escala 800 (ganho +0,010 de log-loss nos dois tours).</p>
+  </div>
+
+  <div class="bloco">
+    <h3>4 · Best-of-5: transformação sets-iid</h3>
+    <p>Jogos longos protegem o favorito. Convertemos a probabilidade (calibrada em bo3) para bo5 assumindo sets independentes — matemática verificada contra os números publicados do Tennis Abstract (0,814 → 0,868):</p>
+    <pre class="formula">p_bo3 = s²(3−2s)  →  resolve s  →  p_bo5 = s³(10−15s+6s²)</pre>
+  </div>
+
+  <div class="bloco">
+    <h3>5 · O que entra (e o que não entra) no treino</h3>
+    <ul>
+      <li><strong>Entram:</strong> ATP + WTA 1968–hoje, challengers e quals (ganho pareado de 0,017 de log-loss — jovens chegam ao tour com rating fiel), ITF feminino ≥50k, Davis Cup.</li>
+      <li><strong>Ficam fora:</strong> walkovers (ninguém jogou), retirements (lesão não é skill — mas a data conta como atividade), futures masculinos (ruído).</li>
+      <li><strong>Carpet</strong> atualiza só o Elo geral (piso extinto; na WTA existiu até 2018).</li>
+    </ul>
+  </div>
+
+  <div class="bloco">
+    <h3>6 · Validação honesta (holdout 2023-2026, leitura única)</h3>
+    <div class="grade-stats">
+      <div class="stat"><div class="stat-n">66,0% / 66,5%</div><div class="stat-l">acerto ATP / WTA (main draw) — ranking oficial: 64%</div></div>
+      <div class="stat"><div class="stat-n">0,210 / 0,208</div><div class="stat-l">Brier — melhor que o Elo publicado (0,215), nível do estado da arte (WElo 0,212)</div></div>
+      <div class="stat"><div class="stat-n">±2,4 p.p.</div><div class="stat-l">pior desvio de calibração na zona 50-80%</div></div>
+      <div class="stat"><div class="stat-n">16/16</div><div class="stat-l">maiores zebras do backtest confirmadas na história real por agentes verificadores</div></div>
+    </div>
+    <p>Picos históricos coerentes com as listas públicas: Djokovic fev/2016 &gt; Sinner 2026 &gt; Nadal set/2013 &gt; Alcaraz &gt; Federer fev/2007.</p>
+  </div>
+
+  <div class="bloco alerta">
+    <h3>7 · O aviso que vale dinheiro: anti-sinal</h3>
+    <p>Contra <strong>closing line</strong> de casa sharp, o modelo NÃO tem edge (backtest pré-registrado: ROI −5,5% ±2,2 em 2.237 apostas). Pior: quanto mais o modelo discorda do fechamento, pior o resultado (desacordo de 12-15 p.p. → ROI −19%). O mercado vê lesões e notícias; o Elo só vê resultados. Por isso o preditor exibe <strong>⚠ anti-sinal</strong> quando o desacordo passa de 5 p.p. — valor real só existe em odds de <em>abertura</em>, promoções de soft book e mercados sem vig (exchanges). Simulação completa: apostar tudo com "EV&gt;5%" em 137 campeonatos (2023-26) teria perdido 264 unidades, lucrando em só 35% dos torneios.</p>
+  </div>
+</section>
+
+<!-- ============ COMPARAÇÃO ============ -->
+<section id="comparacao" class="painel">
+  <h2>Este modelo vs outros sistemas de rating</h2>
+  <p class="sub">Pesquisamos cada sistema na fonte primária (artigos originais, código-fonte, papers) com verificação adversarial — e <em>testamos</em> os mecanismos transferíveis nos nossos dados. As diferenças abaixo não são opinião: têm número.</p>
+
+  <div class="cartao tabela-scroll">
+    <table class="tabela-comp">
+      <thead><tr><th>Sistema</th><th>Como difere deste</th><th>Por quê (motivo técnico)</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Elo clássico (FIDE, xadrez)</strong></td><td>K fixo por faixa (40/20/10); escala 400 crua; sem superfície</td><td>Adotamos K por experiência (a USCF moderna também: K=800/(N+m)) e medimos que a escala 400 superestima favoritos no tênis — nossa 480 calibra (+0,002 de log-loss nos 2 tours)</td></tr>
+        <tr><td><strong>FiveThirtyEight (tênis)</strong></td><td>Mesmo K=250/(m+5)^0.4 — somos descendentes diretos; eles não publicavam blend de superfície nem calibração de escala</td><td>O próprio 538 testou e rejeitou peso extra para slams ("makes predictions slightly less accurate") — confirmamos: multiplicador 1,1 não passa do piso</td></tr>
+        <tr><td><strong>Tennis Abstract (Sackmann)</strong></td><td>Blend 50/50 igual; difere na penalidade de lesão (−100/−150 pts) que NÃO usamos</td><td>No nosso pool (com challengers, era completa) a penalidade fixa deflaciona tudo: log-loss saltou de 0,61 para 1,12. O boost de K no retorno (1,5×) ficou positivo mas sub-piso 4 vezes — candidato v2</td></tr>
+        <tr><td><strong>Ultimate Tennis Statistics</strong></td><td>K por nível de rating (kFunction), K por torneio/rodada, entrada por ranking oficial, ensemble com Elo de sets</td><td>Testamos: kFunction deu resultado misto (piora ATP); entrada por rank ficou positiva mas sub-piso; set-Elo só ajuda WTA. O ensemble deles ganha por COMBINAR 10+ ratings — caminho v2</td></tr>
+        <tr><td><strong>Glicko-2 (lichess/Chess.com)</strong></td><td>Modela incerteza (RD) que cresce com inatividade; volatilidade σ</td><td>Ganho medido em tênis na literatura: ~0,003 de log-loss — marginal. Nosso K dinâmico já aproxima o RD; a peça que falta (incerteza pós-lesão) é exatamente o boost candidato a v2</td></tr>
+        <tr><td><strong>TrueSkill 2 (Microsoft)</strong></td><td>Bayesiano com features de partida (stats individuais, squads)</td><td>Os ganhos do TS2 vêm de dados que tênis 1v1 com placar simples não tem; e a patente restringe uso comercial. Para resultado binário, Elo calibrado empata com 1% da complexidade</td></tr>
+        <tr><td><strong>WElo (acadêmico, EJOR 2022)</strong></td><td>Update ponderado pela fração de games vencidos (margem de vitória)</td><td>Implementamos a fórmula exata e ela perdeu nas 20 janelas×tours testadas. 538 e Sackmann também testaram MOV em produção e rejeitaram: placar mente em tênis (Djokovic campeão de Wimbledon 2019 com 48,3% dos pontos)</td></tr>
+        <tr><td><strong>538 NFL/NBA (outros esportes)</strong></td><td>Regressão à média na off-season (1/3 rumo a 1505)</td><td>Testamos: piora muito (−0,005 a −0,013). No NFL o shrink representa troca de elenco; no tênis o jogador é o mesmo em janeiro. Nenhum sistema de esporte individual faz shrink sazonal</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="bloco">
+    <h3>O processo que decidiu tudo isso</h3>
+    <p>12 pesquisadores web independentes → 12 verificadores adversariais conferindo fórmulas nas fontes primárias (pegaram erros reais, como a contradição 538-vs-Kovalchik no peso de slam) → painel de 5 perspectivas (estatístico, especialista do circuito, quant de apostas, engenheiro, red team) → juiz consolidando com grade pré-registrada → tuning empírico → janelas móveis de 10 anos confirmando convergência (ATP: 8/8 eixos estáveis). Mais de 20 variantes testadas e documentadas, inclusive as que falharam — porque modelo bom é o que sobrevive à tentativa de derrubá-lo.</p>
+  </div>
+
+  <div class="bloco">
+    <h3>Benchmarks externos (mesma era, 2023-25)</h3>
+    <div class="grade-stats">
+      <div class="stat"><div class="stat-n">0,196</div><div class="stat-l">Brier da Pinnacle closing — o teto (vê lesões e notícias)</div></div>
+      <div class="stat"><div class="stat-n">0,210</div><div class="stat-l"><strong>este modelo</strong> (holdout main draw ATP)</div></div>
+      <div class="stat"><div class="stat-n">0,212</div><div class="stat-l">WElo acadêmico (melhor modelo publicado)</div></div>
+      <div class="stat"><div class="stat-n">0,215</div><div class="stat-l">Elo de referência publicado</div></div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="rodape">
+  <div class="wrap">
+    <p><strong>Jony Greens</strong> · dados de partidas: <a href="https://github.com/JeffSackmann/tennis_atp" rel="noopener">Jeff Sackmann</a> (CC BY-NC-SA 4.0 — uso não-comercial, atribuição obrigatória) · código no <a href="https://github.com/jonygreens/jonygreens.github.io" rel="noopener">GitHub</a></p>
+    <p class="mini">Este site é um estudo estatístico. Não é recomendação de aposta. Contra odds de fechamento, o backtest mostrou ROI negativo — leia a aba Metodologia. Jogue com responsabilidade (+18).</p>
+  </div>
+</footer>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+name: Atualiza ratings (semanal)
+on:
+  schedule:
+    - cron: '0 9 * * 1,4'   # seg e qui 09:00 UTC
+  workflow_dispatch:
+jobs:
+  ratings:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Dados Sackmann (shallow)
+        run: |
+          git clone --depth 1 https://github.com/JeffSackmann/tennis_atp _dados/tennis_atp
+          git clone --depth 1 https://github.com/JeffSackmann/tennis_wta _dados/tennis_wta
+      - name: Recalcula modelos + snapshot TA
+        run: |
+          python3 pipeline/atualiza.py ratings
+          python3 pipeline/atualiza.py ta || true
+      - name: Commit se mudou
+        run: |
+          git config user.name "jony-greens-bot"
+          git config user.email "actions@github.com"
+          git add data/
+          git diff --cached --quiet || git commit -m "ratings $(date -u +%F)" && git push
