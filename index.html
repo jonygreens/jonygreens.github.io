@@ -18,6 +18,7 @@
     <div class="logo">🎾 <strong>Jony Greens</strong></div>
     <nav class="abas" role="tablist">
       <button class="aba ativa" data-aba="previsao">Previsão</button>
+      <button class="aba" data-aba="jogos">Jogos</button>
       <button class="aba" data-aba="rankings">Rankings</button>
       <button class="aba" data-aba="metodologia">Metodologia</button>
       <button class="aba" data-aba="comparacao">Comparação</button>
@@ -91,6 +92,15 @@
   <div id="resultado" class="oculto"></div>
 
   <p class="nota-rodape">Ratings até <span class="dataCorte">…</span> (fonte atualiza semanalmente). Probabilidades calibradas no holdout 2023-2026: erro máximo de 2,4 p.p. na zona 50–80%. Este site não é recomendação de aposta — leia a metodologia.</p>
+</section>
+
+<!-- ============ JOGOS ============ -->
+<section id="jogos" class="painel">
+  <h2>Jogos dos próximos dias</h2>
+  <p class="sub">Carregados automaticamente dos mercados abertos (snapshot 3/3h). Previsão do modelo v2.1, EV contra o preço atual do exchange e o plano do dia pela estratégia oficial (flat 1%, máx 3 apostas/dia, veto anti-sinal 8pp). <span class="dataPoly"></span></p>
+  <div class="chips" id="chipsDia"></div>
+  <div id="planoDia"></div>
+  <div id="listaJogos"></div>
 </section>
 
 <!-- ============ RANKINGS ============ -->

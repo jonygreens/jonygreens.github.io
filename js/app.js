@@ -35,6 +35,7 @@ async function carregar() {
   document.querySelectorAll('.dataCorte').forEach(e => e.textContent = atp.data_corte +
     (pvA && pvA.n_jogos ? ' + ' + pvA.n_jogos + ' jogos provisórios (Polymarket, ' + pvA.gerado_em.slice(0, 16).replace('T', ' ') + ' UTC)' : ''));
   montarRanking('atp');
+  montarJogos();
 }
 
 function norm(s) {
@@ -215,6 +216,93 @@ function montarRanking(tour) {
       <td class="num">${j.m}</td>
     </tr>`).join('');
   t.innerHTML = `<thead><tr><th>#</th><th>Jogador(a)</th><th>Elo</th><th>Duro</th><th>Saibro</th><th>Grama</th><th>Jogos</th></tr></thead><tbody>${linhas}</tbody>`;
+}
+
+
+// ---------- JOGOS DO DIA (estilo sofascore, auto) ----------
+function jogosDB() {
+  const idx = { atp: {}, wta: {} };
+  for (const tour of ['atp', 'wta'])
+    for (const j of dados[tour].jogadores)
+      (idx[tour][norm(j.n.split(' ').pop())] ||= []).push(j);
+  return idx;
+}
+
+function montarJogos() {
+  if (!dados.poly) { $('#listaJogos').innerHTML = '<div class="res-cartao">Sem snapshot do Polymarket ainda.</div>'; return; }
+  document.querySelectorAll('.dataPoly').forEach(e => e.textContent = 'Snapshot: ' + dados.poly.capturado_em.slice(0, 16).replace('T', ' ') + ' UTC.');
+  const hoje = new Date().toISOString().slice(0, 10);
+  const idx = jogosDB();
+  const jogos = [];
+  for (const mk of dados.poly.mercados) {
+    const m = (mk.slug || '').match(/^(atp|wta)-.*-(\d{4}-\d{2}-\d{2})$/);
+    if (!m || m[2] < hoje) continue;
+    const tour = m[1], dia = m[2];
+    const ca = idx[tour][norm((mk.lados[0] || '').split(' ').pop())] || [];
+    const cb = idx[tour][norm((mk.lados[1] || '').split(' ').pop())] || [];
+    if (ca.length !== 1 || cb.length !== 1) continue;
+    const [ja, jb] = [ca[0], cb[0]];
+    const p = 1 / (1 + Math.pow(10, (jb.e - ja.e) / 480));
+    const [pa, pb] = mk.precos;
+    if (!(pa > 0.02 && pb > 0.02 && pa < 0.98)) continue;
+    const lados = [
+      { jog: ja, nome: mk.lados[0], p, px: pa },
+      { jog: jb, nome: mk.lados[1], p: 1 - p, px: pb },
+    ].map(l => ({ ...l, ev: l.p / l.px - 1, anti: Math.abs(l.p - l.px) >= 0.08 }));
+    const melhor = lados[0].ev > lados[1].ev ? lados[0] : lados[1];
+    const vale = melhor.ev >= 0.05 && melhor.ev <= 0.25 && melhor.px >= 0.30 && !melhor.anti;
+    jogos.push({ tour, dia, mk, lados, melhor, vale, vol: mk.volume || 0 });
+  }
+  const dias = [...new Set(jogos.map(j => j.dia))].sort().slice(0, 4);
+  const chips = $('#chipsDia');
+  chips.innerHTML = dias.map((d, i) => `<button class="chip${i === 0 ? ' ativa' : ''}" data-v="${d}">${d === hoje ? 'Hoje' : d.slice(8) + '/' + d.slice(5, 7)}</button>`).join('');
+  const render = dia => {
+    const doDia = jogos.filter(j => j.dia === dia).sort((x, y) => (y.vale - x.vale) || (y.vol - x.vol));
+    // plano do dia: top 3 valor, flat 1%
+    const banca = parseFloat($('#banca') ? $('#banca').value : 1000) || 1000;
+    const picks = doDia.filter(j => j.vale).slice(0, 3);
+    let plano = '';
+    if (picks.length) {
+      const stake = Math.round(banca * 0.01);
+      let linhas = picks.map(j => `<tr><td>${j.melhor.jog.n}</td><td class="num">@${(1 / j.melhor.px).toFixed(2)}</td><td class="num">${(j.melhor.p * 100).toFixed(0)}%</td><td class="num">+${(j.melhor.ev * 100).toFixed(0)}%</td><td class="num">R$ ${stake}</td></tr>`).join('');
+      // cenarios: enumeração binária
+      let cen = [];
+      for (let mask = 0; mask < (1 << picks.length); mask++) {
+        let pr = 1, ret = 0, g = 0;
+        picks.forEach((j, i) => {
+          const win = mask & (1 << i);
+          pr *= win ? j.melhor.p : 1 - j.melhor.p;
+          ret += win ? stake * (1 / j.melhor.px - 1) : -stake;
+          if (win) g++;
+        });
+        cen.push({ g, pr, ret });
+      }
+      const agg = {};
+      cen.forEach(c => { (agg[c.g] ||= { pr: 0, ret: c.ret }).pr += c.pr; if (c.g === 0 || c.g === picks.length) agg[c.g].ret = c.ret; });
+      const evDia = cen.reduce((s, c) => s + c.pr * c.ret, 0);
+      const cenHtml = Object.keys(agg).sort().reverse().map(g => `<span class="jog-meta">${g}/${picks.length} greens: ${(agg[g].pr * 100).toFixed(0)}%</span>`).join(' · ');
+      plano = `<div class="res-cartao"><div class="res-nomes"><span>📋 Plano do dia (${picks.length} aposta${picks.length > 1 ? 's' : ''}, flat 1% = R$ ${stake} cada)</span><span class="jog-meta">EV do dia: ${evDia >= 0 ? '+' : ''}R$ ${evDia.toFixed(0)} · pior caso −R$ ${stake * picks.length} · melhor +R$ ${picks.reduce((s, j) => s + stake * (1 / j.melhor.px - 1), 0).toFixed(0)}</span></div>
+      <table><thead><tr><th>Aposta</th><th>Odd</th><th>p modelo</th><th>EV</th><th>Stake</th></tr></thead><tbody>${linhas}</tbody></table>
+      <p class="aviso-leve">${cenHtml}</p>
+      <p class="aviso-leve">Estratégia Fase 0/1: paper primeiro. Preços do snapshot — confira ao vivo antes de qualquer real. Não é recomendação.</p></div>`;
+    } else plano = '<div class="res-cartao"><strong>Nenhuma aposta passa nos filtros hoje</strong> — e não apostar também é EV. (EV 5-25%, prob ≥30%, sem anti-sinal)</div>';
+    $('#planoDia').innerHTML = plano;
+    $('#listaJogos').innerHTML = doDia.map(j => {
+      const [A, B] = j.lados;
+      const fav = A.p >= 0.5 ? A : B;
+      return `<div class="res-cartao" style="${j.vale ? 'border-color:var(--ok)' : ''};margin-bottom:10px">
+        <div class="res-nomes"><span>${j.tour.toUpperCase()} <span class="jog-meta">vol US$ ${(j.vol).toLocaleString()}</span></span>
+        ${j.vale ? '<span class="selo-valor">✅ vale a pena</span>' : (j.melhor.anti && j.melhor.ev >= .05 ? '<span class="jog-meta">⚠ anti-sinal — não apostar</span>' : '')}</div>
+        <div class="res-nomes"><span>${A.jog.n} <span class="jog-meta">Elo ${Math.round(A.jog.e)}</span></span><span style="text-align:right">${B.jog.n} <span class="jog-meta">Elo ${Math.round(B.jog.e)}</span></span></div>
+        <div class="barra"><div style="width:${(A.p * 100).toFixed(0)}%"></div></div>
+        <div class="linha-info"><span class="mono">${(A.p * 100).toFixed(0)}% · @${(1 / A.px).toFixed(2)}</span>
+        <span>previsto: <strong>${fav.jog.n.split(' ').pop()}</strong></span>
+        <span class="mono">@${(1 / B.px).toFixed(2)} · ${(B.p * 100).toFixed(0)}%</span></div>
+      </div>`;
+    }).join('') || '<div class="res-cartao">Sem jogos casados para este dia.</div>';
+  };
+  chips.onclick = e => { const c = e.target.closest('.chip'); if (!c) return; chips.querySelectorAll('.chip').forEach(x => x.classList.remove('ativa')); c.classList.add('ativa'); render(c.dataset.v); };
+  if (dias.length) render(dias[0]);
 }
 
 carregar();
