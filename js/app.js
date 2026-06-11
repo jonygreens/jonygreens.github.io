@@ -5,7 +5,7 @@ const dados = {};            // {atp: {...}, wta: {...}}
 let indice = [];             // [{n, tour, ref}]
 
 async function carregar() {
-  const [atp, wta, modAtp, modWta, taAtp, taWta, poly] = await Promise.all([
+  const [atp, wta, modAtp, modWta, taAtp, taWta, poly, provAtp, provWta] = await Promise.all([
     fetch('data/atp.json').then(r => r.json()),
     fetch('data/wta.json').then(r => r.json()),
     fetch('data/modelos_atp.json').then(r => r.json()).catch(() => null),
@@ -13,16 +13,27 @@ async function carregar() {
     fetch('data/ta_atp.json').then(r => r.json()).catch(() => null),
     fetch('data/ta_wta.json').then(r => r.json()).catch(() => null),
     fetch('data/polymarket.json').then(r => r.json()).catch(() => null),
+    fetch('data/provisorio_atp.json').then(r => r.json()).catch(() => null),
+    fetch('data/provisorio_wta.json').then(r => r.json()).catch(() => null),
   ]);
   dados.atp = atp; dados.wta = wta;
   dados.modelos = { atp: modAtp, wta: modWta };
   dados.ta = { atp: taAtp, wta: taWta };
   dados.poly = poly;
+  dados.prov = { atp: provAtp, wta: provWta };
+  for (const tour of ['atp', 'wta']) {
+    const pv = dados.prov[tour];
+    if (pv && pv.deltas) for (const j of dados[tour].jogadores) {
+      if (pv.deltas[j.n] != null) { j.e += pv.deltas[j.n]; j.prov = pv.deltas[j.n]; }
+    }
+  }
   for (const tour of ['atp', 'wta'])
     for (const j of dados[tour].jogadores) indice.push({ n: j.n, tour, ref: j });
   const dl = $('#listaJogadores');
   dl.innerHTML = indice.map(x => `<option value="${x.n}">`).join('');
-  document.querySelectorAll('.dataCorte').forEach(e => e.textContent = atp.data_corte);
+  const pvA = dados.prov.atp;
+  document.querySelectorAll('.dataCorte').forEach(e => e.textContent = atp.data_corte +
+    (pvA && pvA.n_jogos ? ' + ' + pvA.n_jogos + ' jogos provisórios (Polymarket, ' + pvA.gerado_em.slice(0, 16).replace('T', ' ') + ' UTC)' : ''));
   montarRanking('atp');
 }
 
@@ -81,7 +92,7 @@ $('#btnPrever').addEventListener('click', () => {
   const { p, ra, rb } = prever(A.ref, B.ref, { piso, bo, altitude });
   const pisoNome = { H: 'duro', C: 'saibro', G: 'grama' }[piso];
 
-  const meta = j => `Elo ${Math.round(j.ref.e)} · ${pisoNome} ${j.ref.s[piso] ? Math.round(j.ref.s[piso]) : '—'} · ${j.ref.m} jogos${j.ref.r ? ' · #' + j.ref.r : ''}`;
+  const meta = j => `Elo ${Math.round(j.ref.e)}${j.ref.prov ? ' (' + (j.ref.prov > 0 ? '+' : '') + Math.round(j.ref.prov) + ' prov.)' : ''} · ${pisoNome} ${j.ref.s[piso] ? Math.round(j.ref.s[piso]) : '—'} · ${j.ref.m} jogos${j.ref.r ? ' · #' + j.ref.r : ''}`;
   let html = `
   <div class="res-cartao">
     <div class="res-nomes">

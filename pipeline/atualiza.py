@@ -26,7 +26,7 @@ SAIDA = os.path.join(RAIZ, 'data')
 # Os 4 modelos: nosso (calibrado) + reimplementacoes vivas das formulas alheias.
 # Cada um carrega a escala da PROPRIA previsao (o app usa isso ao comparar).
 MODELOS = {
-    'nosso': dict(rotulo='Jony Greens v1.1', escala_app=480, blend_app=0.5, bo5_app=True,
+    'nosso': dict(rotulo='Jony Greens v2.0', escala_app=480, blend_app=0.5, bo5_app=True,
                   cfg={}),
     'uts': dict(rotulo='UTS (reimpl. kFunction)', escala_app=400, blend_app=0.5, bo5_app=False,
                 cfg={'k_modelo': 'uts', 'escala_prob': 400.0}),
@@ -43,9 +43,9 @@ BASE_CFG = {
     'incluir_davis': True, 'incluir_challengers': True, 'incluir_futures': False,
     'peso_blend_geral': 0.5, 'iniciar_superficie_do_geral': True,
     'carpet_vira': 'geral_apenas', 'contar_retirements': False, 'contar_walkovers': False,
-    'dias_inatividade': 0, 'boost_k_retorno': 1.0, 'partidas_boost_retorno': 0,
+    'dias_inatividade': 56, 'boost_k_retorno': 1.5, 'partidas_boost_retorno': 20,
     'penalidade_retorno_pts': 0, 'ajuste_bo5': 'transformacao_sets_iid', 'mov': 'nenhum',
-    'escala_prob': 480.0,
+    'escala_prob': 480.0, 'entrada_por_rank': True, 'set_elo_peso': 0.25,
 }
 
 
@@ -158,5 +158,64 @@ def cmd_polymarket():
     print('polymarket: %d mercados' % len(partidas))
 
 
+def cmd_provisorio():
+    """Jogos que ACABARAM (mercados resolvidos no Polymarket) viram updates provisorios
+    de Elo geral ate o proximo sync da fonte oficial. Conservador: so aplica quando os
+    DOIS lados casam com exatamente 1 jogador ativo cada."""
+    corte = {}
+    for tour in ('atp', 'wta'):
+        base = json.load(open(os.path.join(SAIDA, '%s.json' % tour)))
+        corte[tour] = base['data_corte']
+    eventos, offset = [], 0
+    try:
+        while offset < 1000:
+            lote = json.loads(_baixa('https://gamma-api.polymarket.com/events?tag_slug=tennis&closed=true&order=endDate&ascending=false&limit=100&offset=%d' % offset))
+            if not lote:
+                break
+            eventos.extend(lote)
+            offset += 100
+    except Exception as e:
+        print('polymarket indisponivel (%s)' % e)
+        return
+    import unicodedata
+    def norm(x):
+        x = unicodedata.normalize('NFKD', x)
+        return ''.join(c for c in x if not unicodedata.combining(c)).lower()
+    for tour in ('atp', 'wta'):
+        base = json.load(open(os.path.join(SAIDA, '%s.json' % tour)))
+        idx = {}
+        for j in base['jogadores']:
+            idx.setdefault(norm(j['n'].split()[-1]), []).append(j)
+        deltas, vistos = {}, set()
+        for ev in eventos:
+            slug = ev.get('slug', '')
+            if not slug.startswith(tour + '-') or ev.get('endDate', '')[:10] <= corte[tour]:
+                continue
+            for mk in ev.get('markets', []):
+                try:
+                    precos = [float(p) for p in json.loads(mk.get('outcomePrices') or '[]')]
+                    lados = json.loads(mk.get('outcomes') or '[]')
+                except Exception:
+                    continue
+                if len(precos) != 2 or sorted(precos) != [0.0, 1.0] or slug in vistos:
+                    continue
+                cand = [idx.get(norm((l or '').split()[-1]), []) for l in lados]
+                if len(cand[0]) != 1 or len(cand[1]) != 1 or cand[0][0]['n'] == cand[1][0]['n']:
+                    continue
+                vistos.add(slug)
+                venc = cand[0][0] if precos[0] == 1.0 else cand[1][0]
+                perd = cand[1][0] if precos[0] == 1.0 else cand[0][0]
+                ev_p = 1.0 / (1.0 + 10 ** ((perd['e'] - venc['e']) / 400.0))
+                kv = 250.0 / ((venc['m'] + 5) ** 0.4)
+                kp = 250.0 / ((perd['m'] + 5) ** 0.4)
+                deltas[venc['n']] = deltas.get(venc['n'], 0) + kv * (1 - ev_p)
+                deltas[perd['n']] = deltas.get(perd['n'], 0) - kp * (1 - ev_p)
+        with open(os.path.join(SAIDA, 'provisorio_%s.json' % tour), 'w', encoding='utf-8') as f:
+            json.dump({'desde': corte[tour], 'gerado_em': datetime.datetime.utcnow().isoformat() + 'Z',
+                       'n_jogos': len(vistos), 'deltas': {k: round(v, 1) for k, v in deltas.items()}},
+                      f, ensure_ascii=False, separators=(',', ':'))
+        print('provisorio_%s: %d jogos resolvidos, %d jogadores ajustados' % (tour, len(vistos), len(deltas)))
+
+
 if __name__ == '__main__':
-    {'ratings': cmd_ratings, 'ta': cmd_ta, 'polymarket': cmd_polymarket}[sys.argv[1]]()
+    {'ratings': cmd_ratings, 'ta': cmd_ta, 'polymarket': cmd_polymarket, 'provisorio': cmd_provisorio}[sys.argv[1]]()

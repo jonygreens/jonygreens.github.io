@@ -1,7 +1,7 @@
 name: Atualiza ratings (semanal)
 on:
   schedule:
-    - cron: '0 9 * * 1,4'   # seg e qui 09:00 UTC
+    - cron: '0 9 * * *'   # seg e qui 09:00 UTC
   workflow_dispatch:
 jobs:
   ratings:
