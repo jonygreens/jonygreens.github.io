@@ -124,6 +124,8 @@ def cmd_ta():
                        'atualizado': atual.group(1) if atual else hoje(),
                        'capturado_em': hoje(), 'jogadores': jog},
                       f, ensure_ascii=False, separators=(',', ':'))
+        if len(jog) < 300:
+            sys.exit('SANITY FAIL: ta_%s com so %d jogadores — HTML mudou?' % (tour, len(jog)))
         print('ta_%s: %d jogadores (update %s)' % (tour, len(jog), atual.group(1) if atual else '?'))
 
 
@@ -153,6 +155,17 @@ def cmd_polymarket():
             partidas.append({'t': ev.get('title', ''), 'slug': ev.get('slug', ''),
                              'lados': nomes, 'precos': [float(p) for p in precos],
                              'volume': round(float(mk.get('volumeNum') or 0))})
+    # pool de ABERTURA: registra o primeiro preco visto de cada slug (append-only)
+    ab_path = os.path.join(SAIDA, 'abertura.json')
+    try:
+        abertura = json.load(open(ab_path))
+    except Exception:
+        abertura = {}
+    agora = datetime.datetime.utcnow().isoformat() + 'Z'
+    for p in partidas:
+        if p['slug'] and p['slug'] not in abertura:
+            abertura[p['slug']] = {'lados': p['lados'], 'precos': p['precos'], 'visto_em': agora}
+    json.dump(abertura, open(ab_path, 'w'), ensure_ascii=False, separators=(',', ':'))
     with open(os.path.join(SAIDA, 'polymarket.json'), 'w', encoding='utf-8') as f:
         json.dump({'capturado_em': datetime.datetime.utcnow().isoformat() + 'Z',
                    'mercados': partidas}, f, ensure_ascii=False, separators=(',', ':'))
@@ -211,6 +224,23 @@ def cmd_provisorio():
                 kp = 250.0 / ((perd['m'] + 5) ** 0.4)
                 deltas[venc['n']] = deltas.get(venc['n'], 0) + kv * (1 - ev_p)
                 deltas[perd['n']] = deltas.get(perd['n'], 0) - kp * (1 - ev_p)
+        try:
+            resolv = json.load(open(os.path.join(SAIDA, 'resolvidos.json')))
+        except Exception:
+            resolv = {}
+        for ev2 in eventos:
+            sl = ev2.get('slug', '')
+            if not sl.startswith(tour + '-') or sl in resolv:
+                continue
+            for mk2 in ev2.get('markets', []):
+                try:
+                    pr2 = [float(x) for x in json.loads(mk2.get('outcomePrices') or '[]')]
+                    ld2 = json.loads(mk2.get('outcomes') or '[]')
+                except Exception:
+                    continue
+                if len(pr2) == 2 and sorted(pr2) == [0.0, 1.0]:
+                    resolv[sl] = ld2[0] if pr2[0] == 1.0 else ld2[1]
+        json.dump(resolv, open(os.path.join(SAIDA, 'resolvidos.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
         with open(os.path.join(SAIDA, 'provisorio_%s.json' % tour), 'w', encoding='utf-8') as f:
             json.dump({'desde': corte[tour], 'gerado_em': datetime.datetime.utcnow().isoformat() + 'Z',
                        'n_jogos': len(vistos), 'deltas': {k: round(v, 1) for k, v in deltas.items()}},
@@ -218,5 +248,85 @@ def cmd_provisorio():
         print('provisorio_%s: %d jogos resolvidos, %d jogadores ajustados' % (tour, len(vistos), len(deltas)))
 
 
+def cmd_paper():
+    """Paper-trading automatico, regras PRE-REGISTRADAS (v1, 11/06/2026):
+    pool ABERTURA Polymarket; aposta se EV vs 1o preco em [5%,25%], prob implicita
+    do lado >=0.30, |p_modelo - p_atual| < 8pp (veto anti-sinal) e ambos os lados
+    casam unicamente com 1 jogador ativo. Stake flat 1u. CLV vs ultimo preco visto."""
+    import csv as _csv, unicodedata
+    def norm(x):
+        x = unicodedata.normalize('NFKD', x)
+        return ''.join(c for c in x if not unicodedata.combining(c)).lower()
+    LOG = os.path.join(SAIDA, 'paper_log.csv')
+    linhas = []
+    if os.path.exists(LOG):
+        linhas = list(_csv.DictReader(open(LOG, encoding='utf-8')))
+    try:
+        poly = json.load(open(os.path.join(SAIDA, 'polymarket.json')))
+        abertura = json.load(open(os.path.join(SAIDA, 'abertura.json')))
+        resolv = json.load(open(os.path.join(SAIDA, 'resolvidos.json')))
+    except Exception as e:
+        print('paper: falta insumo (%s)' % e)
+        return
+    ja = {l['slug'] for l in linhas}
+    atual = {p['slug']: p for p in poly.get('mercados', []) if p.get('slug')}
+    agora = datetime.datetime.utcnow().isoformat() + 'Z'
+    db = {}
+    for tour in ('atp', 'wta'):
+        for j in json.load(open(os.path.join(SAIDA, '%s.json' % tour)))['jogadores']:
+            db.setdefault(tour, {}).setdefault(norm(j['n'].split()[-1]), []).append(j)
+    # liquida abertas
+    for l in linhas:
+        if l['resultado'] or l['slug'] not in resolv:
+            if l['slug'] in atual:
+                l['px_ultimo'] = '%.3f' % atual[l['slug']]['precos'][int(l['idx_lado'])]
+            continue
+        venc = norm(resolv[l['slug']].split()[-1])
+        ganhou = venc == norm(l['aposta_em'].split()[-1])
+        l['resultado'] = 'green' if ganhou else 'red'
+        odd = 1.0 / float(l['px_tomado'])
+        l['pnl_flat'] = '%.3f' % ((odd - 1.0) if ganhou else -1.0)
+        try:
+            l['clv'] = '%.4f' % (float(l['px_ultimo']) - float(l['px_tomado']))
+        except Exception:
+            pass
+    # novas apostas (so mercados ainda abertos, na ABERTURA)
+    for slug, mk in atual.items():
+        if slug in ja or slug not in abertura:
+            continue
+        tour = 'atp' if slug.startswith('atp-') else 'wta' if slug.startswith('wta-') else None
+        if not tour:
+            continue
+        ab = abertura[slug]
+        cands = [db[tour].get(norm((x or '').split()[-1]), []) for x in ab['lados']]
+        if len(cands[0]) != 1 or len(cands[1]) != 1:
+            continue
+        ja_, jb_ = cands[0][0], cands[1][0]
+        p = 1.0 / (1.0 + 10 ** ((jb_['e'] - ja_['e']) / 480.0))
+        for idx, (p_lado, jog) in enumerate(((p, ja_), (1 - p, jb_))):
+            px_ab = ab['precos'][idx]
+            px_now = mk['precos'][idx]
+            if px_ab <= 0 or px_now <= 0:
+                continue
+            ev = p_lado / px_ab - 1.0
+            if not (0.05 <= ev <= 0.25 and px_ab >= 0.30 and abs(p_lado - px_now) < 0.08):
+                continue
+            linhas.append({'ts': agora, 'slug': slug, 'tour': tour, 'aposta_em': jog['n'],
+                           'idx_lado': str(idx), 'p_model': '%.4f' % p_lado,
+                           'px_tomado': '%.3f' % px_ab, 'px_ultimo': '%.3f' % px_now,
+                           'ev_abertura': '%.4f' % ev, 'resultado': '', 'pnl_flat': '', 'clv': ''})
+            break
+    cols = ['ts', 'slug', 'tour', 'aposta_em', 'idx_lado', 'p_model', 'px_tomado',
+            'px_ultimo', 'ev_abertura', 'resultado', 'pnl_flat', 'clv']
+    with open(LOG, 'w', newline='', encoding='utf-8') as f:
+        w = _csv.DictWriter(f, fieldnames=cols, extrasaction='ignore')
+        w.writeheader()
+        w.writerows(linhas)
+    g = sum(1 for l in linhas if l.get('resultado') == 'green')
+    r = sum(1 for l in linhas if l.get('resultado') == 'red')
+    pnl = sum(float(l['pnl_flat']) for l in linhas if l.get('pnl_flat'))
+    print('paper: %d apostas | %dG/%dR | pnl flat %+.2fu' % (len(linhas), g, r, pnl))
+
+
 if __name__ == '__main__':
-    {'ratings': cmd_ratings, 'ta': cmd_ta, 'polymarket': cmd_polymarket, 'provisorio': cmd_provisorio}[sys.argv[1]]()
+    {'ratings': cmd_ratings, 'ta': cmd_ta, 'polymarket': cmd_polymarket, 'provisorio': cmd_provisorio, 'paper': cmd_paper}[sys.argv[1]]()

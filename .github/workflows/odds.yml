@@ -13,8 +13,13 @@ jobs:
         with: { python-version: '3.12' }
       - run: python3 pipeline/atualiza.py polymarket
       - run: python3 pipeline/atualiza.py provisorio
+      - run: python3 pipeline/atualiza.py paper
       - run: |
           git config user.name "jony-greens-bot"
           git config user.email "actions@github.com"
           git add data/
           git diff --cached --quiet || git commit -m "polymarket $(date -u +%FT%H:%M)" && git push
+      - name: Alarme em falha
+        if: failure()
+        run: gh issue create --title "🚨 Job de odds falhou $(date -u +%F)" --body "Ver logs do run $GITHUB_RUN_ID" || true
+        env: { GH_TOKEN: "${{ github.token }}" }

@@ -25,3 +25,7 @@ jobs:
           git config user.email "actions@github.com"
           git add data/
           git diff --cached --quiet || git commit -m "ratings $(date -u +%F)" && git push
+      - name: Alarme em falha
+        if: failure()
+        run: gh issue create --title "🚨 Job de ratings falhou $(date -u +%F)" --body "Ver logs do run $GITHUB_RUN_ID" || true
+        env: { GH_TOKEN: "${{ github.token }}" }
