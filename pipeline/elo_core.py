@@ -260,6 +260,11 @@ def run_elo(matches, cfg, eval_from_year=None, history=None):
     season = {}
     theta = cfg.get('set_elo_peso') or 0.0                      # set-Elo paralelo (UTS)
     rset = {}
+    # LESAO: quem perdeu por RET (abandonou em quadra) carrega penalidade TEMPORARIA
+    # de previsao nos proximos N jogos — rust/lesao e transitorio, o rating nao muda.
+    les_pts = cfg.get('lesao_penalidade_pts') or 0.0
+    les_n = cfg.get('lesao_partidas') or 0
+    lesionado = {}
 
     r = {}          # id -> elo geral
     rs = {}         # (id, surf) -> elo superficie
@@ -279,12 +284,15 @@ def run_elo(matches, cfg, eval_from_year=None, history=None):
         od = m[ODATE]
         wid, lid, surf = m[WID], m[LID], m[SURF]
 
-        # RET fora do treino: so refresca o relogio de atividade e metadados
+        # RET fora do treino: so refresca o relogio de atividade e metadados;
+        # o perdedor (quem abandonou) entra em observacao de lesao
         if m[ACT_ONLY]:
             last[wid] = od
             last[lid] = od
             names[wid] = m[WNAME]
             names[lid] = m[LNAME]
+            if les_n:
+                lesionado[lid] = les_n
             continue
 
         # --- retorno de inatividade (aplica ANTES de prever: ferrugem afeta este jogo) ---
@@ -331,17 +339,19 @@ def run_elo(matches, cfg, eval_from_year=None, history=None):
         else:
             rsw, rsl = rw, rl
 
-        # --- probabilidades PRE-jogo (escala calibrada) ---
-        p_o = expected(rw, rl, esc)
-        p_s = expected(rsw, rsl, esc)
+        # --- probabilidades PRE-jogo (escala calibrada; lesao = penalidade temporaria) ---
+        pen_w = les_pts if lesionado.get(wid, 0) > 0 else 0.0
+        pen_l = les_pts if lesionado.get(lid, 0) > 0 else 0.0
+        p_o = expected(rw - pen_w, rl - pen_l, esc)
+        p_s = expected(rsw - pen_w, rsl - pen_l, esc)
         w_m = w_surf_map.get(surf, w_blend) if surf is not None else w_blend
         if grama_hard and surf == 'Grass':
             anc_w = rs.get((wid, 'Hard'), rw)
             anc_l = rs.get((lid, 'Hard'), rl)
         else:
             anc_w, anc_l = rw, rl
-        p_b = expected(w_m * anc_w + (1 - w_m) * rsw,
-                       w_m * anc_l + (1 - w_m) * rsl, esc)
+        p_b = expected(w_m * anc_w + (1 - w_m) * rsw - pen_w,
+                       w_m * anc_l + (1 - w_m) * rsl - pen_l, esc)
         if theta:
             stw = rset.get(wid, rw)
             stl = rset.get(lid, rl)
@@ -361,7 +371,8 @@ def run_elo(matches, cfg, eval_from_year=None, history=None):
         kl = k_factor(n.get(lid, 0), cfg, rl) * lm * bl
         # MOV estilo WElo (EJOR 2022): update ponderado pela fracao de games do vencedor
         fg = m[FGAMES] if use_welo else None
-        delta = 1.0 - (p_o if esc == 400.0 else expected(rw, rl))
+        # update SEMPRE com ratings crus (penalidade de lesao e so de previsao)
+        delta = 1.0 - (p_o if (esc == 400.0 and not pen_w and not pen_l) else expected(rw, rl))
         if fg is not None:
             delta *= fg
         r[wid] = rw + kw * delta
@@ -370,7 +381,7 @@ def run_elo(matches, cfg, eval_from_year=None, history=None):
         if surf is not None:
             ksw = k_factor(ns.get(kws, 0), cfg, rsw) * lm * bw
             ksl = k_factor(ns.get(kls, 0), cfg, rsl) * lm * bl
-            ds = 1.0 - (p_s if esc == 400.0 else expected(rsw, rsl))
+            ds = 1.0 - (p_s if (esc == 400.0 and not pen_w and not pen_l) else expected(rsw, rsl))
             if fg is not None:
                 ds *= fg
             rs[kws] = rsw + ksw * ds
@@ -397,6 +408,10 @@ def run_elo(matches, cfg, eval_from_year=None, history=None):
             boost[wid] -= 1
         if boost.get(lid, 0) > 0:
             boost[lid] -= 1
+        if lesionado.get(wid, 0) > 0:
+            lesionado[wid] -= 1
+        if lesionado.get(lid, 0) > 0:
+            lesionado[lid] -= 1
         if r[wid] > peak.get(wid, (-1e9, 0))[0]:
             peak[wid] = (r[wid], od)
         names[wid] = m[WNAME]

@@ -26,7 +26,7 @@ SAIDA = os.path.join(RAIZ, 'data')
 # Os 4 modelos: nosso (calibrado) + reimplementacoes vivas das formulas alheias.
 # Cada um carrega a escala da PROPRIA previsao (o app usa isso ao comparar).
 MODELOS = {
-    'nosso': dict(rotulo='Jony Greens v2.0', escala_app=480, blend_app=0.5, bo5_app=True,
+    'nosso': dict(rotulo='Jony Greens v2.1', escala_app=480, blend_app=0.5, bo5_app=True,
                   cfg={}),
     'uts': dict(rotulo='UTS (reimpl. kFunction)', escala_app=400, blend_app=0.5, bo5_app=False,
                 cfg={'k_modelo': 'uts', 'escala_prob': 400.0}),
@@ -46,6 +46,7 @@ BASE_CFG = {
     'dias_inatividade': 56, 'boost_k_retorno': 1.5, 'partidas_boost_retorno': 20,
     'penalidade_retorno_pts': 0, 'ajuste_bo5': 'transformacao_sets_iid', 'mov': 'nenhum',
     'escala_prob': 480.0, 'entrada_por_rank': True, 'set_elo_peso': 0.25,
+    'lesao_penalidade_pts': 80, 'lesao_partidas': 6,
 }
 
 
