@@ -4,8 +4,17 @@ const $ = s => document.querySelector(s);
 const dados = {};            // {atp: {...}, wta: {...}}
 let indice = [];             // [{n, tour, ref}]
 
+function dedupeMercados(lista) {
+  const best = new Map();
+  for (const mk of lista || []) {
+    if (!mk.slug) continue;
+    const ex = best.get(mk.slug);
+    if (!ex || (mk.volume || 0) > (ex.volume || 0)) best.set(mk.slug, mk);
+  }
+  return [...best.values()];
+}
 async function carregar() {
-  const [atp, wta, modAtp, modWta, taAtp, taWta, poly, provAtp, provWta] = await Promise.all([
+  const [atp, wta, modAtp, modWta, taAtp, taWta, poly, provAtp, provWta, resolvidos] = await Promise.all([
     fetch('data/atp.json').then(r => r.json()),
     fetch('data/wta.json').then(r => r.json()),
     fetch('data/modelos_atp.json').then(r => r.json()).catch(() => null),
@@ -15,11 +24,14 @@ async function carregar() {
     fetch('data/polymarket.json').then(r => r.json()).catch(() => null),
     fetch('data/provisorio_atp.json').then(r => r.json()).catch(() => null),
     fetch('data/provisorio_wta.json').then(r => r.json()).catch(() => null),
+    fetch('data/resolvidos.json?t=' + Date.now()).then(r => r.json()).catch(() => ({})),
   ]);
   dados.atp = atp; dados.wta = wta;
   dados.modelos = { atp: modAtp, wta: modWta };
   dados.ta = { atp: taAtp, wta: taWta };
+  if (poly) poly.mercados = dedupeMercados(poly.mercados);
   dados.poly = poly;
+  dados.resolvidos = resolvidos || {};
   dados.prov = { atp: provAtp, wta: provWta };
   for (const tour of ['atp', 'wta']) {
     const pv = dados.prov[tour];
@@ -262,7 +274,10 @@ function montarJogos() {
   const chips = $('#chipsDia');
   chips.innerHTML = dias.map((d, i) => `<button class="chip${i === 0 ? ' ativa' : ''}" data-v="${d}">${d === hoje ? 'Hoje' : d.slice(8) + '/' + d.slice(5, 7)}</button>`).join('');
   const render = dia => {
-    const doDia = jogos.filter(j => j.dia === dia).sort((x, y) => (x.ts || 1e15) - (y.ts || 1e15) || (y.vol - x.vol));
+    const doDia = jogos.filter(j => j.dia === dia).sort((x, y) => {
+      const fx = dados.resolvidos[x.mk.slug] ? 1 : 0, fy = dados.resolvidos[y.mk.slug] ? 1 : 0;
+      return fx - fy || (x.ts || 1e15) - (y.ts || 1e15) || (y.vol - x.vol);
+    });
     // plano do dia: top 3 valor, flat 1%
     const banca = parseFloat($('#banca') ? $('#banca').value : 1000) || 1000;
     const picks = doDia.filter(j => j.vale).slice(0, 3);
@@ -297,17 +312,23 @@ function montarJogos() {
       const fav = A.p >= 0.5 ? A : B;
       const hora = j.hora ? j.hora : '—:—';
       const sofa = n => `https://www.sofascore.com/search?q=${encodeURIComponent(n)}`;
+      const venc = dados.resolvidos[j.mk.slug];
+      const aoVivo = !venc && j.ts && Date.now() > j.ts;
+      const av = n => { let h = 0; for (const c of n) h = (h * 31 + c.charCodeAt(0)) % 360;
+        return `<span class="av" style="background:hsl(${h},38%,28%)">${n.split(' ').map(x => x[0]).slice(0, 2).join('')}</span>`; };
       const linhaJog = (L, vencPrev) => `
         <div class="sj-jog${vencPrev ? ' sj-fav' : ''}">
+          ${av(L.jog.n)}
           <a href="${sofa(L.jog.n)}" target="_blank" rel="noopener" class="sj-nome">${L.jog.n}</a>
+          ${venc && norm(venc.split(' ').pop()) === norm(L.jog.n.split(' ').pop()) ? '<span class="sj-venceu">✓ venceu</span>' : ''}
           <span class="jog-meta">${Math.round(L.jog.e)}</span>
-          <span class="sj-prob mono">${(L.p * 100).toFixed(0)}%</span>
+          <span class="sj-prob mono">${aoVivo ? '<span class="sj-live-px">' + (L.px * 100).toFixed(0) + '%</span>' : (L.p * 100).toFixed(0) + '%'}</span>
         </div>`;
       const oddChip = (rot, cor, va, vb) => `
         <div class="sj-odd"><span class="sj-logo" style="background:${cor}">${rot}</span>
         <span class="mono">${va}</span><span class="mono">${vb}</span></div>`;
       return `<div class="sj-linha${j.vale ? ' sj-vale' : ''}">
-        <div class="sj-hora mono">${hora}<span class="jog-meta">${j.tour.toUpperCase()}</span></div>
+        <div class="sj-hora mono">${venc ? '<span class="sj-fim">FIM</span>' : (aoVivo ? '<span class="sj-aovivo">● AO VIVO</span>' : hora)}<span class="jog-meta">${j.tour.toUpperCase()}</span></div>
         <div class="sj-meio">${linhaJog(A, fav === A)}${linhaJog(B, fav === B)}</div>
         <div class="sj-odds">
           ${oddChip('🎾 JG', 'var(--acento)', (1 / A.p).toFixed(2), (1 / B.p).toFixed(2))}
@@ -322,6 +343,16 @@ function montarJogos() {
 }
 
 carregar();
+setInterval(async () => {
+  try {
+    const [poly, res] = await Promise.all([
+      fetch('data/polymarket.json?t=' + Date.now()).then(r => r.json()),
+      fetch('data/resolvidos.json?t=' + Date.now()).then(r => r.json()).catch(() => ({}))]);
+    poly.mercados = dedupeMercados(poly.mercados);
+    dados.poly = poly; dados.resolvidos = res || {};
+    montarJogos(); renderPlano();
+  } catch (e) {}
+}, 5 * 60 * 1000);
 
 // ================= PLANO DO DIA (interativo) =================
 let pickState = {};

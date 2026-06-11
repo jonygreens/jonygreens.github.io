@@ -130,3 +130,11 @@ td.num { font-family: var(--mono); }
   .sj-odds { flex-direction: row; grid-column: 1 / -1; }
   .sj-selo { grid-column: 2; text-align: left; }
 }
+
+.av { width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff; flex: none; border: 1px solid var(--borda); }
+.sj-aovivo { color: var(--perigo); font-size: 12px; font-weight: 700; animation: pulsar 1.4s infinite; }
+.sj-fim { color: var(--texto-2); font-size: 12px; font-weight: 700; }
+.sj-venceu { color: var(--ok); font-size: 11px; font-weight: 700; }
+.sj-live-px { color: var(--perigo); }
+@keyframes pulsar { 50% { opacity: .35; } }

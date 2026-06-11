@@ -143,6 +143,7 @@ def cmd_polymarket():
         print('polymarket indisponivel (%s) — mantendo snapshot anterior' % e)
         return
     partidas = []
+    melhor_por_slug = {}
     for ev in eventos:
         for mk in ev.get('markets', []):
             try:
@@ -152,10 +153,19 @@ def cmd_polymarket():
                 continue
             if len(precos) != 2 or len(nomes) != 2:
                 continue
-            partidas.append({'t': ev.get('title', ''), 'slug': ev.get('slug', ''),
-                             'lados': nomes, 'precos': [float(p) for p in precos],
-                             'volume': round(float(mk.get('volumeNum') or 0)),
-                             'inicio': mk.get('gameStartTime') or ev.get('startDate') or ''})
+            cand = {'t': ev.get('title', ''), 'slug': ev.get('slug', ''),
+                    'lados': nomes, 'precos': [float(p) for p in precos],
+                    'volume': round(float(mk.get('volumeNum') or 0)),
+                    'inicio': mk.get('gameStartTime') or ev.get('startDate') or '',
+                    '_money': (mk.get('question') or '').strip() == (ev.get('title') or '').strip()}
+            atual = melhor_por_slug.get(cand['slug'])
+            if atual is None or (cand['_money'], cand['volume']) > (atual['_money'], atual['volume']):
+                melhor_por_slug[cand['slug']] = cand
+    for cand in melhor_por_slug.values():
+        cand.pop('_money', None)
+        partidas.append(cand)
+    if True:
+        pass
     # pool de ABERTURA: registra o primeiro preco visto de cada slug (append-only)
     ab_path = os.path.join(SAIDA, 'abertura.json')
     try:
