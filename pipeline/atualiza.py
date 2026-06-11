@@ -154,7 +154,8 @@ def cmd_polymarket():
                 continue
             partidas.append({'t': ev.get('title', ''), 'slug': ev.get('slug', ''),
                              'lados': nomes, 'precos': [float(p) for p in precos],
-                             'volume': round(float(mk.get('volumeNum') or 0))})
+                             'volume': round(float(mk.get('volumeNum') or 0)),
+                             'inicio': mk.get('gameStartTime') or ev.get('startDate') or ''})
     # pool de ABERTURA: registra o primeiro preco visto de cada slug (append-only)
     ab_path = os.path.join(SAIDA, 'abertura.json')
     try:
