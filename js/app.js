@@ -251,13 +251,16 @@ function montarJogos() {
     ].map(l => ({ ...l, ev: l.p / l.px - 1, anti: Math.abs(l.p - l.px) >= 0.08 }));
     const melhor = lados[0].ev > lados[1].ev ? lados[0] : lados[1];
     const vale = melhor.ev >= 0.05 && melhor.ev <= 0.25 && melhor.px >= 0.30 && !melhor.anti;
-    jogos.push({ tour, dia, mk, lados, melhor, vale, vol: mk.volume || 0 });
+    let ts = null, hora = '';
+    if (mk.inicio) { const d2 = new Date(mk.inicio); if (!isNaN(d2)) { ts = d2.getTime();
+      hora = d2.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); } }
+    jogos.push({ tour, dia, mk, lados, melhor, vale, vol: mk.volume || 0, ts, hora });
   }
   const dias = [...new Set(jogos.map(j => j.dia))].sort().slice(0, 4);
   const chips = $('#chipsDia');
   chips.innerHTML = dias.map((d, i) => `<button class="chip${i === 0 ? ' ativa' : ''}" data-v="${d}">${d === hoje ? 'Hoje' : d.slice(8) + '/' + d.slice(5, 7)}</button>`).join('');
   const render = dia => {
-    const doDia = jogos.filter(j => j.dia === dia).sort((x, y) => (y.vale - x.vale) || (y.vol - x.vol));
+    const doDia = jogos.filter(j => j.dia === dia).sort((x, y) => (x.ts || 1e15) - (y.ts || 1e15) || (y.vol - x.vol));
     // plano do dia: top 3 valor, flat 1%
     const banca = parseFloat($('#banca') ? $('#banca').value : 1000) || 1000;
     const picks = doDia.filter(j => j.vale).slice(0, 3);
@@ -290,14 +293,25 @@ function montarJogos() {
     $('#listaJogos').innerHTML = doDia.map(j => {
       const [A, B] = j.lados;
       const fav = A.p >= 0.5 ? A : B;
-      return `<div class="res-cartao" style="${j.vale ? 'border-color:var(--ok)' : ''};margin-bottom:10px">
-        <div class="res-nomes"><span>${j.tour.toUpperCase()} <span class="jog-meta">vol US$ ${(j.vol).toLocaleString()}</span></span>
-        ${j.vale ? '<span class="selo-valor">✅ vale a pena</span>' : (j.melhor.anti && j.melhor.ev >= .05 ? '<span class="jog-meta">⚠ anti-sinal — não apostar</span>' : '')}</div>
-        <div class="res-nomes"><span>${A.jog.n} <span class="jog-meta">Elo ${Math.round(A.jog.e)}</span></span><span style="text-align:right">${B.jog.n} <span class="jog-meta">Elo ${Math.round(B.jog.e)}</span></span></div>
-        <div class="barra"><div style="width:${(A.p * 100).toFixed(0)}%"></div></div>
-        <div class="linha-info"><span class="mono">${(A.p * 100).toFixed(0)}% · @${(1 / A.px).toFixed(2)}</span>
-        <span>previsto: <strong>${fav.jog.n.split(' ').pop()}</strong></span>
-        <span class="mono">@${(1 / B.px).toFixed(2)} · ${(B.p * 100).toFixed(0)}%</span></div>
+      const hora = j.hora ? j.hora : '—:—';
+      const sofa = n => `https://www.sofascore.com/search?q=${encodeURIComponent(n)}`;
+      const linhaJog = (L, vencPrev) => `
+        <div class="sj-jog${vencPrev ? ' sj-fav' : ''}">
+          <a href="${sofa(L.jog.n)}" target="_blank" rel="noopener" class="sj-nome">${L.jog.n}</a>
+          <span class="jog-meta">${Math.round(L.jog.e)}</span>
+          <span class="sj-prob mono">${(L.p * 100).toFixed(0)}%</span>
+        </div>`;
+      const oddChip = (rot, cor, va, vb) => `
+        <div class="sj-odd"><span class="sj-logo" style="background:${cor}">${rot}</span>
+        <span class="mono">${va}</span><span class="mono">${vb}</span></div>`;
+      return `<div class="sj-linha${j.vale ? ' sj-vale' : ''}">
+        <div class="sj-hora mono">${hora}<span class="jog-meta">${j.tour.toUpperCase()}</span></div>
+        <div class="sj-meio">${linhaJog(A, fav === A)}${linhaJog(B, fav === B)}</div>
+        <div class="sj-odds">
+          ${oddChip('🎾 JG', 'var(--acento)', (1 / A.p).toFixed(2), (1 / B.p).toFixed(2))}
+          ${oddChip('Ⓟ Poly', '#2d5af6', (1 / A.px).toFixed(2), (1 / B.px).toFixed(2))}
+        </div>
+        <div class="sj-selo">${j.vale ? '<span class="selo-valor">✅ vale</span>' : (j.melhor.anti && j.melhor.ev >= .05 ? '<span class="sj-anti">⚠ anti-sinal</span>' : '')}</div>
       </div>`;
     }).join('') || '<div class="res-cartao">Sem jogos casados para este dia.</div>';
   };

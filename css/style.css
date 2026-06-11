@@ -108,3 +108,25 @@ td.num { font-family: var(--mono); }
   .ev-grid { grid-template-columns: 1fr; }
   th, td { padding: 9px 10px; }
 }
+
+/* aba jogos — linhas estilo placar */
+.sj-linha { display: grid; grid-template-columns: 64px 1fr auto auto; gap: 12px; align-items: center;
+  background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; }
+.sj-linha.sj-vale { border-color: var(--ok); }
+.sj-hora { display: flex; flex-direction: column; font-size: 15px; gap: 2px; }
+.sj-jog { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.sj-nome { color: var(--texto); text-decoration: none; font-weight: 500; }
+.sj-nome:hover { color: var(--acento); text-decoration: underline; }
+.sj-fav .sj-nome { font-weight: 800; }
+.sj-prob { margin-left: auto; color: var(--texto-2); font-size: 13px; }
+.sj-odds { display: flex; flex-direction: column; gap: 6px; }
+.sj-odd { display: grid; grid-template-columns: 74px 48px 48px; gap: 6px; align-items: center; font-size: 13px; }
+.sj-logo { font-size: 11px; font-weight: 700; color: #101400; border-radius: 6px; padding: 2px 6px; text-align: center; }
+.sj-odd .mono { background: var(--painel); border: 1px solid var(--borda); border-radius: 6px; padding: 2px 4px; text-align: center; }
+.sj-anti { color: var(--perigo); font-size: 12px; }
+.sj-selo { min-width: 70px; text-align: right; }
+@media (max-width: 680px) {
+  .sj-linha { grid-template-columns: 50px 1fr; }
+  .sj-odds { flex-direction: row; grid-column: 1 / -1; }
+  .sj-selo { grid-column: 2; text-align: left; }
+}
