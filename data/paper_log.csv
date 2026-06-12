@@ -1,8 +1,9 @@
 ts,slug,tour,aposta_em,idx_lado,p_model,px_tomado,px_ultimo,ev_abertura,resultado,pnl_flat,clv
-2026-06-11T15:02:46.430547Z,wta-naef-urhobo-2026-06-10,wta,Celine Naef,0,0.5302,0.480,0.680,0.1046,,,
-2026-06-11T15:02:46.430547Z,wta-vidmano-stefani-2026-06-10,wta,Lucrezia Stefanini,1,0.4383,0.410,0.425,0.0691,,,
+2026-06-11T15:02:46.430547Z,wta-naef-urhobo-2026-06-10,wta,Celine Naef,0,0.5302,0.480,0.685,0.1046,,,
+2026-06-11T15:02:46.430547Z,wta-vidmano-stefani-2026-06-10,wta,Lucrezia Stefanini,1,0.4383,0.410,0.420,0.0691,,,
 2026-06-11T15:02:46.430547Z,wta-bouzkov-vekic-2026-06-10,wta,Marie Bouzkova,0,0.5633,0.505,0.515,0.1155,,,
-2026-06-11T15:02:46.430547Z,atp-kicker-hardt-2026-06-11,atp,Nicolas Kicker,0,0.4747,0.395,0.405,0.2018,,,
-2026-06-11T15:56:04.028941Z,atp-lajovic-batalla-2026-06-11,atp,Dusan Lajovic,0,0.7098,0.600,0.495,0.1829,,,
-2026-06-11T22:30:34.290718Z,atp-galan-coppeja-2026-06-12,atp,Kimmer Coppejans,1,0.5655,0.515,0.515,0.0980,,,
-2026-06-11T22:30:34.290718Z,atp-zhang-mannari-2026-06-12,atp,Zhizhen Zhang,0,0.5143,0.435,0.435,0.1822,,,
+2026-06-11T15:02:46.430547Z,atp-kicker-hardt-2026-06-11,atp,Nicolas Kicker,0,0.4747,0.395,0.405,0.2018,red,-1.000,0.0100
+2026-06-11T15:56:04.028941Z,atp-lajovic-batalla-2026-06-11,atp,Dusan Lajovic,0,0.7098,0.600,0.395,0.1829,,,
+2026-06-11T22:30:34.290718Z,atp-galan-coppeja-2026-06-12,atp,Kimmer Coppejans,1,0.5655,0.515,0.525,0.0980,,,
+2026-06-11T22:30:34.290718Z,atp-zhang-mannari-2026-06-12,atp,Zhizhen Zhang,0,0.5143,0.435,0.435,0.1822,red,-1.000,0.0000
+2026-06-12T12:01:37.112726Z,atp-piros-daniel-2026-06-12,atp,Zsombor Piros,0,0.7061,0.605,0.665,0.1671,,,
