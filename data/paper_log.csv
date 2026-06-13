@@ -7,5 +7,9 @@ ts,slug,tour,aposta_em,idx_lado,p_model,px_tomado,px_ultimo,ev_abertura,resultad
 2026-06-11T22:30:34.290718Z,atp-galan-coppeja-2026-06-12,atp,Kimmer Coppejans,1,0.5655,0.515,0.525,0.0980,red,-1.000,0.0100
 2026-06-11T22:30:34.290718Z,atp-zhang-mannari-2026-06-12,atp,Zhizhen Zhang,0,0.5143,0.435,0.435,0.1822,red,-1.000,0.0000
 2026-06-12T12:01:37.112726Z,atp-piros-daniel-2026-06-12,atp,Zsombor Piros,0,0.7061,0.605,0.665,0.1671,red,-1.000,0.0600
-2026-06-12T20:57:03.770799Z,atp-sanchis-boyer-2026-06-13,atp,Tristan Boyer,1,0.6136,0.580,0.580,0.0579,,,
-2026-06-12T20:57:03.770799Z,atp-shevche-sachko-2026-06-13,atp,Alexander Shevchenko,0,0.6223,0.575,0.575,0.0823,,,
+2026-06-12T20:57:03.770799Z,atp-sanchis-boyer-2026-06-13,atp,Tristan Boyer,1,0.6136,0.580,0.625,0.0579,,,
+2026-06-12T20:57:03.770799Z,atp-shevche-sachko-2026-06-13,atp,Alexander Shevchenko,0,0.6223,0.575,0.595,0.0823,,,
+2026-06-13T08:39:58.665020Z,atp-mannari-minaur-2026-06-13,atp,Alex De Minaur,1,0.8580,0.775,0.805,0.1071,,,
+2026-06-13T08:39:58.665020Z,wta-stoiana-naef-2026-06-13,wta,Mary Stoiana,0,0.4673,0.400,0.400,0.1683,,,
+2026-06-13T08:39:58.665020Z,wta-bronzet-samson-2026-06-13,wta,Laura Samson,1,0.6574,0.585,0.585,0.1238,,,
+2026-06-13T08:39:58.665020Z,atp-justo-ambrogi-2026-06-13,atp,Guido Ivan Justo,0,0.6520,0.605,0.605,0.0777,,,
